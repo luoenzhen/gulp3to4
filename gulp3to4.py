@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
 import os
+import re
 import time
 import shutil
 import pprint
@@ -41,6 +42,8 @@ with open(GULP_3_FILE, 'r+') as f:
                 list_string = '\"' + line.split('\',', 1)[1].split(');')[0].lstrip() + '\"'
                 new_gulp_task_str = line.split(' ', 1)[0] + ' gulp.series(' + ast.literal_eval(list_string).replace('[', '').replace(']', '') + '));'
                 one_line_gulp_task_list.append(new_gulp_task_str)
+            else:
+                one_line_gulp_task_list.append(line.rstrip())
 
         # multi line gulp task function
         if line.startswith('gulp.task') and line.rstrip().endswith('{'):
@@ -54,25 +57,19 @@ with open(GULP_3_FILE, 'r+') as f:
                 # convert array to series with parameter
                 if 'gulp.task' in gulp_task_line or 'gulp.watch' in gulp_task_line:
                     if '[' in gulp_task_line and ']' in gulp_task_line:
-                        gulp_task_line = gulp_task_line.replace('[', 'gulp.series(')
-                        gulp_task_line = gulp_task_line.replace(']', ')')
-                    else :
-                        gulp_task_line = 'function ' + gulp_task_line.split('\'')[1] + '() {'
-                        gulp_task_line = gulp_task_line.replace(':', '-')
-                        # print(gulp_task_line)
-
+                        if '/*' in gulp_task_line and '*/' in gulp_task_line:
+                            gulp_task_line = re.sub('[\[/*].*[*/\],]\s+', '', gulp_task_line)
+                        else:
+                            gulp_task_line = gulp_task_line.replace('[', 'gulp.series(')
+                            gulp_task_line = gulp_task_line.replace(']', ')')
+                    # replace : to - in the gulp.series parameter
+                    gulp_task_line = gulp_task_line.replace(':', '_')
+                    gulp_task_line = gulp_task_line.replace('-', '_')
                 gulp_task.append(gulp_task_line.rstrip())
 
+                # add close bracket and curly bracket
                 if gulp_task_line.startswith('});'):
-                    if 'gulp.series' in gulp_task[0]:
-                        gulp_task[-1] = gulp_task_line.replace(')', '))').rstrip()
-                    else:
-                        gulp_task[-1] = gulp_task_line.replace('});', '}').rstrip()
-
                     gulp_task_list.append(gulp_task)
-                    # need to return promise
-                    if 'del' in lines[j-1]:
-                        gulp_task[-2] = '    return ' + gulp_task[-2].lstrip()
                     gulp_task = []
                     break
 
@@ -91,9 +88,28 @@ f.close()
 gulp_task_list_copy = []
 for func in gulp_task_list:
     if func[0].startswith('function'):
-        function_list.append(func)        
+        function_list.append(func)
     else:
         gulp_task_list_copy.append(func)
+gulp_task_list = gulp_task_list_copy
+
+# move gulp.series tasks after single gulp.task
+gulp_task_list_copy = []
+last_gulp_task_list = []
+for func in gulp_task_list:
+    if 'gulp.series' in func[0]:
+        last_gulp_task_list.append(func)
+    else:
+        gulp_task_list_copy.append(func)
+
+# resolve forward references issue
+for func in last_gulp_task_list:
+    
+
+
+# append to gulp_task_list
+for func in last_gulp_task_list:
+    gulp_task_list_copy.append(func)
 gulp_task_list = gulp_task_list_copy
 
 # print('\n\n\t\t----- one line gulp task list -----\n')
@@ -126,6 +142,12 @@ for func in function_list:
         nf.write('\n')
     nf.write('\n')
 
+for func in gulp_task_list:
+    for line in func:
+        nf.write(line)
+        nf.write('\n')
+    nf.write('\n')
+
 # print out gulp.task from fulp task list
 for func in one_line_gulp_task_list:
     nf.write(func)
@@ -133,10 +155,8 @@ for func in one_line_gulp_task_list:
 
 nf.write('\n')
 
-for func in gulp_task_list:
-    for line in func:
-        nf.write(line)
-        nf.write('\n')
-    nf.write('\n')
-nf.close()
+# last bit
+nf.write('module.exports = gulp;')
+nf.write('\n')
 
+nf.close()
