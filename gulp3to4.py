@@ -58,6 +58,7 @@ with open(GULP_3_FILE, 'r+') as f:
                         gulp_task_line = gulp_task_line.replace(']', ')')
                     else :
                         gulp_task_line = 'function ' + gulp_task_line.split('\'')[1] + '() {'
+                        gulp_task_line = gulp_task_line.replace(':', '-')
                         # print(gulp_task_line)
 
                 gulp_task.append(gulp_task_line.rstrip())
@@ -86,16 +87,56 @@ with open(GULP_3_FILE, 'r+') as f:
 
 f.close()
 
-print('\n\n\t\t----- one line gulp task list -----\n')
-pp.pprint(one_line_gulp_task_list)
-print('\n\n\t\t----- gulp task function list -----\n')
-pp.pprint(gulp_task_list)
-print('\n\n\t\t----- variable list -----\n')
-pp.pprint(variable_list)
-print('\n\n\t\t----- function list -----\n')
-pp.pprint(function_list)
+# move functions from gulp_task_list to function_list
+gulp_task_list_copy = []
+for func in gulp_task_list:
+    if func[0].startswith('function'):
+        function_list.append(func)        
+    else:
+        gulp_task_list_copy.append(func)
+gulp_task_list = gulp_task_list_copy
+
+# print('\n\n\t\t----- one line gulp task list -----\n')
+# pp.pprint(one_line_gulp_task_list)
+# print('\n\n\t\t----- gulp task function list -----\n')
+# pp.pprint(gulp_task_list)
+# print('\n\n\t\t----- variable list -----\n')
+# pp.pprint(variable_list)
+# print('\n\n\t\t----- function list -----\n')
+# pp.pprint(function_list)
 
 # reorganize the functions and write to a new file
-nf = open(GULP_4_FILE, "a")
+nf = open(GULP_4_FILE, "w")
+var_line = ''
 for variable in variable_list:
-    var_line = '   ' + variable + ',\n'
+    var_line += '    ' + variable + ',\n'
+var_line = 'var ' + var_line.lstrip()
+# replace last comma as semicolon
+last_comma_position = var_line.rfind(',')
+var_line = var_line[:last_comma_position] + ';' + var_line[last_comma_position+1:]
+for line in var_line:
+    nf.write(line)
+
+nf.write('\n')
+
+# print out func from function list
+for func in function_list:
+    for line in func:
+        nf.write(line)
+        nf.write('\n')
+    nf.write('\n')
+
+# print out gulp.task from fulp task list
+for func in one_line_gulp_task_list:
+    nf.write(func)
+    nf.write('\n')
+
+nf.write('\n')
+
+for func in gulp_task_list:
+    for line in func:
+        nf.write(line)
+        nf.write('\n')
+    nf.write('\n')
+nf.close()
+
